@@ -22,24 +22,34 @@ class Aggregate(ETLStep):
                              source.endswith(".zip")}
 
     def _create_base_table(self):
-        self.data = pd.read_csv(f"data/{self.INPUT_FOLDER}/epidemiology.zip")
+        self.data = pd.read_csv(f"../data/{self.INPUT_FOLDER}/epidemiology.zip")
+        self.data = self.data.groupby(["week", "country_name"])[
+            ["new_confirmed", "new_deceased", "new_deceased_confirmed_ratio"]].median()
 
     def _create_macro_table(self):
-        demographics = pd.read_csv(f"data/{self.INPUT_FOLDER}/demographics.zip")
-        self.data = self.data.merge(demographics, on=["location_key"], how="left")
+        health = pd.read_csv(f"../data/{self.INPUT_FOLDER}/health.zip").groupby("country_name")[["life_expectancy"]].median()
+        self.data = self.data.merge(health, on="country_name", how="left")
 
-        health = pd.read_csv(f"data/{self.INPUT_FOLDER}/health.zip")
-        self.data = self.data.merge(health, on=["location_key", "country_name"], how="left")
+        hospitalizations = pd.read_csv(f"../data/{self.INPUT_FOLDER}/hospitalizations.zip")
+        hospitalizations["week"] = pd.DatetimeIndex(hospitalizations.date).to_period("W")
+        hospitalizations["week"] = hospitalizations.week.astype(str)
+        hospitalizations = hospitalizations.groupby(["week", "country_name"])[
+            ["new_hospitalized_patients", "cumulative_hospitalized_patients", "current_hospitalized_patients",
+             "current_intensive_care_patients"]].median()
+        self.data = self.data.merge(hospitalizations, on=["week", "country_name"], how="left")
 
-        hospitalizations = pd.read_csv(f"data/{self.INPUT_FOLDER}/hospitalizations.zip")
-        self.data = self.data.merge(hospitalizations, on=["location_key", "country_name", "date"], how="left")
+        vaccinations = pd.read_csv(f"../data/{self.INPUT_FOLDER}/vaccinations.zip")
+        vaccinations["week"] = pd.DatetimeIndex(vaccinations.date).to_period("W")
+        vaccinations["week"] = vaccinations.week.astype(str)
+        vaccinations = vaccinations.groupby(["week", "country_name"])[
+            ["new_persons_fully_vaccinated", "cumulative_persons_fully_vaccinated"]].median()
+        self.data = self.data.merge(vaccinations, on=["week", "country_name"], how="left")
 
-        vaccinations = pd.read_csv(f"data/{self.INPUT_FOLDER}/vaccinations.zip")
-        self.data = self.data.merge(vaccinations, on=["location_key", "country_name", "date"], how="left")
+        self.data.set_index(["week", "country_name"], inplace=True)
 
     def _missing_values_action(self):
         self.data = self.data.fillna(
-            self.data.select_dtypes(include=['float64', 'int64']).mean()
+            self.data.select_dtypes(include=['float64', 'int64']).median()
         )
 
     def _create_report(self):
