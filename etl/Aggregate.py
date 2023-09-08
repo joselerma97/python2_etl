@@ -22,15 +22,17 @@ class Aggregate(ETLStep):
                              source.endswith(".zip")}
 
     def _create_base_table(self):
-        self.data = pd.read_csv(f"../data/{self.INPUT_FOLDER}/epidemiology.zip")
+        self.data = pd.read_csv(f"data/{self.INPUT_FOLDER}/epidemiology.zip")
         self.data = self.data.groupby(["week", "country_name"])[
             ["new_confirmed", "new_deceased", "new_deceased_confirmed_ratio"]].median()
 
     def _create_macro_table(self):
-        health = pd.read_csv(f"../data/{self.INPUT_FOLDER}/health.zip").groupby("country_name")[["life_expectancy"]].median()
+        self.data = self.data.reset_index()
+
+        health = pd.read_csv(f"data/{self.INPUT_FOLDER}/health.zip").groupby("country_name")[["life_expectancy"]].median()
         self.data = self.data.merge(health, on="country_name", how="left")
 
-        hospitalizations = pd.read_csv(f"../data/{self.INPUT_FOLDER}/hospitalizations.zip")
+        hospitalizations = pd.read_csv(f"data/{self.INPUT_FOLDER}/hospitalizations.zip")
         hospitalizations["week"] = pd.DatetimeIndex(hospitalizations.date).to_period("W")
         hospitalizations["week"] = hospitalizations.week.astype(str)
         hospitalizations = hospitalizations.groupby(["week", "country_name"])[
@@ -38,7 +40,7 @@ class Aggregate(ETLStep):
              "current_intensive_care_patients"]].median()
         self.data = self.data.merge(hospitalizations, on=["week", "country_name"], how="left")
 
-        vaccinations = pd.read_csv(f"../data/{self.INPUT_FOLDER}/vaccinations.zip")
+        vaccinations = pd.read_csv(f"data/{self.INPUT_FOLDER}/vaccinations.zip")
         vaccinations["week"] = pd.DatetimeIndex(vaccinations.date).to_period("W")
         vaccinations["week"] = vaccinations.week.astype(str)
         vaccinations = vaccinations.groupby(["week", "country_name"])[

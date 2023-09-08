@@ -23,6 +23,7 @@ if __name__ == "__main__":
         print([])
 
     aggregate = Aggregate(args.name)
+    aggregate.handle_action()
     enrich = Enrich(args.countries.split(",") if args.countries else [], aggregate)
     pre_proc = Preproc(args.start, args.end, enrich)
     raw = Raw(pre_proc)
